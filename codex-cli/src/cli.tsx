@@ -47,6 +47,7 @@ import { isModelSupportedForResponses } from "./utils/model-utils.js";
 import { parseToolCall } from "./utils/parsers";
 import { providers } from "./utils/providers";
 import { onExit, setInkRenderer } from "./utils/terminal";
+import { runVisualLoop } from "./utils/visual-loop.js";
 import chalk from "chalk";
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -214,6 +215,25 @@ const cli = meow(
         description: `Run in full-context editing approach. The model is given the whole code
           directory as context and performs changes in one go without acting.`,
       },
+      visualLoop: {
+        type: "boolean",
+        description: "Enable automated browser-render feedback loop",
+      },
+      startCmd: {
+        type: "string",
+        description: "Command to start local server for visual loop",
+        default: "npm start",
+      },
+      serveUrl: {
+        type: "string",
+        description: "URL to capture for visual loop",
+        default: "http://localhost:3000",
+      },
+      maxAttempts: {
+        type: "number",
+        description: "Maximum visual loop iterations",
+        default: 3,
+      },
     },
   },
 );
@@ -279,6 +299,7 @@ if (cli.flags.config) {
 // ---------------------------------------------------------------------------
 
 const fullContextMode = Boolean(cli.flags.fullContext);
+const visualLoopMode = Boolean(cli.flags.visualLoop);
 let config = loadConfig(undefined, undefined, {
   cwd: process.cwd(),
   disableProjectDoc: Boolean(cli.flags.noProjectDoc),
@@ -536,6 +557,19 @@ if (fullContextMode) {
     originalPrompt: prompt,
     config,
     rootPath: process.cwd(),
+  });
+  onExit();
+  process.exit(0);
+}
+
+if (visualLoopMode) {
+  await runVisualLoop({
+    prompt: prompt ?? "",
+    config,
+    model: model,
+    startCommand: cli.flags.startCmd,
+    url: cli.flags.serveUrl,
+    maxAttempts: cli.flags.maxAttempts,
   });
   onExit();
   process.exit(0);
