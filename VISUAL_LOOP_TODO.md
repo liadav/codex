@@ -11,3 +11,4 @@
 - [x] Update system prompt describing when to call the new tool.
 - [x] Provide CODEX_DISABLE_VISUAL_TOOL env to disable the feature.
 - [x] Add tests for tool invocation and for non-visual tasks.
+- [x] Compress screenshots before sending to reduce cost.
