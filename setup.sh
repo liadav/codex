@@ -8,6 +8,16 @@ if ! command -v node >/dev/null || [[ "$(node -v)" != v22* ]]; then
   export PATH=/usr/local/n/versions/node/*/bin:$PATH
 fi
 
+# Install Chrome/Chromium for screenshot tests
+if ! command -v google-chrome >/dev/null && ! command -v chromium-browser >/dev/null && ! command -v chromium >/dev/null; then
+  echo "Installing Chrome for Puppeteer..."
+  apt-get update
+  apt-get install -y wget gnupg
+  wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  apt-get install -y /tmp/chrome.deb
+  rm /tmp/chrome.deb
+fi
+
 # Enable corepack and install pnpm
 if ! command -v pnpm >/dev/null; then
   corepack enable
