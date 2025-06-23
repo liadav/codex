@@ -18,6 +18,13 @@ fi
 pnpm install
 pnpm --filter @openai/codex run build
 
+# Ensure API key is available for integration tests and visual loop
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+  echo "WARNING: OPENAI_API_KEY is not set. Visual loop features will be disabled."
+else
+  export OPENAI_API_KEY
+fi
+
 # Optionally install native sandbox dependencies if GH_TOKEN is set
 if command -v gh >/dev/null && command -v zstd >/dev/null && [[ -n "${GH_TOKEN:-}" ]]; then
   bash ./codex-cli/scripts/install_native_deps.sh

@@ -224,6 +224,23 @@ The hardening mechanism Codex uses depends on your OS:
 
 Key flags: `--model/-m`, `--approval-mode/-a`, `--quiet/-q`, and `--notify`.
 
+### Visual feedback loop
+
+Enable autonomous browser-based validation by adding `--visual-loop`.
+Codex will launch the project, capture screenshots at common screen sizes,
+and ask the model to confirm completion. The loop stops once the assistant
+replies with **"DONE ✅"** or after the configured attempt limit.
+
+```bash
+codex --visual-loop "make the app responsive"
+```
+Additional options:
+
+- `--start-cmd` – command used to launch the local server (default `npm start`)
+- `--serve-url` – page URL to screenshot (default `http://localhost:3000`)
+- `--max-attempts` – maximum number of iterations (default `3`)
+- `OPENAI_API_KEY` must be set for vision evaluation to work
+
 ---
 
 ## Memory & project docs
