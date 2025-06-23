@@ -234,6 +234,10 @@ const cli = meow(
         description: "Maximum visual loop iterations",
         default: 3,
       },
+      skipCompression: {
+        type: "boolean",
+        description: "Return screenshots without JPEG compression",
+      },
     },
   },
 );
@@ -314,6 +318,12 @@ let prompt = cli.input[0];
 const model = cli.flags.model ?? config.model;
 const imagePaths = cli.flags.image;
 const provider = cli.flags.provider ?? config.provider ?? "openai";
+const skipCompression =
+  Boolean(cli.flags.skipCompression) ||
+  process.env["CODEX_SKIP_COMPRESSION"] === "1";
+if (cli.flags.skipCompression) {
+  process.env["CODEX_SKIP_COMPRESSION"] = "1";
+}
 
 const client = {
   issuer: "https://auth.openai.com",
@@ -570,6 +580,7 @@ if (visualLoopMode) {
     startCommand: cli.flags.startCmd,
     url: cli.flags.serveUrl,
     maxAttempts: cli.flags.maxAttempts,
+    skipCompression,
   });
   onExit();
   process.exit(0);

@@ -239,6 +239,8 @@ Additional options:
 - `--start-cmd` – command used to launch the local server (default `npm start`)
 - `--serve-url` – page URL to screenshot (default `http://localhost:3000`)
 - `--max-attempts` – maximum number of iterations (default `3`)
+- `--skip-compression` – return screenshots without JPEG compression
+  (or set `CODEX_SKIP_COMPRESSION=1`)
 - `OPENAI_API_KEY` must be set for vision evaluation to work
 
 The assistant may also request screenshots at any time using the

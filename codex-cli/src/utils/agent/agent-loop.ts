@@ -485,6 +485,7 @@ export class AgentLoop {
       const images = await captureScreenshots({
         startCommand: params.start_command,
         url: params.url,
+        skipCompression: process.env["CODEX_SKIP_COMPRESSION"] === "1",
       });
       outputItem.output = JSON.stringify({ images });
     }
