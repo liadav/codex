@@ -106,3 +106,33 @@ test("loadAndCompress reduces image size", async () => {
   }
   server.close();
 });
+
+test("loadAndCompress can skip compression", async () => {
+  const app = express();
+  app.get("/", (_req, res) => {
+    res.send("<html><body>Small</body></html>");
+  });
+  const server = app.listen(0);
+  const port = (server.address() as any).port;
+
+  let shots: Array<string> = [];
+  try {
+    shots = await screenshotUrl(`http://localhost:${port}`);
+  } catch (err) {
+    server.close();
+    // eslint-disable-next-line no-console
+    console.warn("Skipping compression test:", (err as Error).message);
+    return;
+  }
+
+  const { loadAndCompress } = visualTest as any;
+  const orig = fs.readFileSync(shots[0]!).length;
+  const b64 = await loadAndCompress(shots[0]!, true);
+  const len = Buffer.from(b64, "base64").length;
+  expect(len).toBe(orig);
+
+  for (const f of shots) {
+    fs.unlinkSync(f);
+  }
+  server.close();
+});
