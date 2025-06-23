@@ -58,7 +58,8 @@ test("evaluateScreenshots integrates screenshots", async () => {
             create: vi.fn(async ({ messages }) => {
               const imgMsg = messages.find((m: any) => Array.isArray(m.content));
               const b64 = imgMsg.content[1].image_url.split(",")[1];
-              expect(Buffer.from(b64, "base64").length).toBeGreaterThan(1000);
+              const size = Buffer.from(b64, "base64").length;
+              expect(size).toBeGreaterThan(100);
               return { choices: [{ message: { content: "DONE ✅" } }] } as any;
             }),
           },
@@ -70,6 +71,36 @@ test("evaluateScreenshots integrates screenshots", async () => {
   const { evaluateScreenshots } = visualTest as any;
   const result = await evaluateScreenshots("gpt-4o", "Check", shots);
   expect(result).toContain("DONE ✅");
+  for (const f of shots) {
+    fs.unlinkSync(f);
+  }
+  server.close();
+});
+
+test("loadAndCompress reduces image size", async () => {
+  const app = express();
+  app.get("/", (_req, res) => {
+    res.send("<html><body>Small</body></html>");
+  });
+  const server = app.listen(0);
+  const port = (server.address() as any).port;
+
+  let shots: Array<string> = [];
+  try {
+    shots = await screenshotUrl(`http://localhost:${port}`);
+  } catch (err) {
+    server.close();
+    // eslint-disable-next-line no-console
+    console.warn("Skipping compression test:", (err as Error).message);
+    return;
+  }
+
+  const { loadAndCompress } = visualTest as any;
+  const orig = fs.readFileSync(shots[0]!).length;
+  const b64 = await loadAndCompress(shots[0]!);
+  const compressed = Buffer.from(b64, "base64").length;
+  expect(compressed).toBeLessThan(orig);
+
   for (const f of shots) {
     fs.unlinkSync(f);
   }

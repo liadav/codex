@@ -10,6 +10,13 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
+import sharp from "sharp";
+
+async function loadAndCompress(file: string): Promise<string> {
+  const b = await fs.readFile(file);
+  const compressed = await sharp(b).jpeg({ quality: 60 }).toBuffer();
+  return compressed.toString("base64");
+}
 
 
 
@@ -80,9 +87,9 @@ export async function captureScreenshots(params: {
     const files = await screenshotUrl(url);
     const images = await Promise.all(
       files.map(async (f) => {
-        const b = await fs.readFile(f);
+        const base64 = await loadAndCompress(f);
         await fs.unlink(f).catch(() => {});
-        return b.toString("base64");
+        return base64;
       }),
     );
     return images;
@@ -111,9 +118,7 @@ async function evaluateScreenshots(
     return "DONE ✅";
   }
   const openai = createOpenAIClient({ provider: "openai" });
-  const contents = await Promise.all(
-    screenshots.map((p) => fs.readFile(p).then((b) => b.toString("base64"))),
-  );
+  const contents = await Promise.all(screenshots.map(loadAndCompress));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const messages: Array<any> = [
     {
@@ -199,4 +204,5 @@ export async function runVisualLoop(opts: VisualLoopOptions): Promise<void> {
 export const _test = {
   evaluateScreenshots,
   captureScreenshots,
+  loadAndCompress,
 };
