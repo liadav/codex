@@ -10,7 +10,6 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import puppeteer from "puppeteer";
 
 
 
@@ -45,6 +44,7 @@ async function waitForServer(url: string, timeoutMs = 30_000): Promise<void> {
 }
 
 export async function screenshotUrl(url: string): Promise<Array<string>> {
+  const { default: puppeteer } = await import("puppeteer");
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -66,6 +66,29 @@ export async function screenshotUrl(url: string): Promise<Array<string>> {
   }
   await browser.close();
   return files;
+}
+
+export async function captureScreenshots(params: {
+  startCommand?: string;
+  url?: string;
+}): Promise<Array<string>> {
+  const { startCommand = "npm start", url = "http://localhost:3000" } =
+    params ?? {};
+  const proc = spawn(startCommand, { shell: true, stdio: "ignore" });
+  try {
+    await waitForServer(url);
+    const files = await screenshotUrl(url);
+    const images = await Promise.all(
+      files.map(async (f) => {
+        const b = await fs.readFile(f);
+        await fs.unlink(f).catch(() => {});
+        return b.toString("base64");
+      }),
+    );
+    return images;
+  } finally {
+    proc.kill();
+  }
 }
 
 function supportsVision(model: string): boolean {
@@ -175,4 +198,5 @@ export async function runVisualLoop(opts: VisualLoopOptions): Promise<void> {
 
 export const _test = {
   evaluateScreenshots,
+  captureScreenshots,
 };
