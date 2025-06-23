@@ -1,5 +1,7 @@
 import express from "express";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import { test, expect, vi } from "vitest";
 import { screenshotUrl, _test as visualTest } from "../src/utils/visual-loop";
 
@@ -105,4 +107,15 @@ test("loadAndCompress reduces image size", async () => {
     fs.unlinkSync(f);
   }
   server.close();
+});
+
+test("loadAndCompress falls back without sharp", async () => {
+  const { loadAndCompress } = visualTest as any;
+  const tmp = path.join(os.tmpdir(), `raw-${Date.now()}.jpg`);
+  fs.writeFileSync(tmp, Buffer.from("dummy"));
+  const spy = vi.spyOn(visualTest as any, "getSharp").mockResolvedValue(null);
+  const b64 = await loadAndCompress(tmp);
+  expect(Buffer.from(b64, "base64").length).toBe(Buffer.from("dummy").length);
+  spy.mockRestore();
+  fs.unlinkSync(tmp);
 });

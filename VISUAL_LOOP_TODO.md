@@ -12,3 +12,4 @@
 - [x] Provide CODEX_DISABLE_VISUAL_TOOL env to disable the feature.
 - [x] Add tests for tool invocation and for non-visual tasks.
 - [x] Compress screenshots before sending to reduce cost.
+- [x] Handle missing sharp gracefully by sending raw images.

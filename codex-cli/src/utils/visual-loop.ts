@@ -1,5 +1,6 @@
 import type { AppConfig } from "./config.js";
 import type { ResponseItem } from "openai/resources/responses/responses";
+import type sharp from "sharp";
 
 import { AgentLoop } from "./agent/agent-loop.js";
 import { ReviewDecision } from "./agent/review.js";
@@ -10,12 +11,51 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import sharp from "sharp";
+
+
+let sharpLib: typeof sharp | null = null;
+async function getSharp(): Promise<typeof sharp | null> {
+  if (sharpLib) {
+    return sharpLib;
+  }
+  try {
+    const mod = (await import("sharp")) as unknown as typeof sharp & {
+      versions?: Record<string, string>;
+      default?: typeof sharp;
+    };
+    // Node 22 may not have prebuilt binaries
+    if (mod.versions?.["libvips"]) {
+      sharpLib = mod.default ?? mod;
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn("sharp is missing libvips; screenshots will not be compressed");
+      sharpLib = null;
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `sharp not available: ${(err as Error).message}. Screenshots will not be compressed`,
+    );
+    sharpLib = null;
+  }
+  return sharpLib;
+}
 
 async function loadAndCompress(file: string): Promise<string> {
   const b = await fs.readFile(file);
-  const compressed = await sharp(b).jpeg({ quality: 60 }).toBuffer();
-  return compressed.toString("base64");
+  const lib = await getSharp();
+  if (lib) {
+    try {
+      const compressed = await lib(b).jpeg({ quality: 60 }).toBuffer();
+      return compressed.toString("base64");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `sharp failed to compress image: ${(err as Error).message}; sending uncompressed`,
+      );
+    }
+  }
+  return b.toString("base64");
 }
 
 
@@ -205,4 +245,5 @@ export const _test = {
   evaluateScreenshots,
   captureScreenshots,
   loadAndCompress,
+  getSharp,
 };
