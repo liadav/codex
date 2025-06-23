@@ -1,7 +1,9 @@
+/* eslint-disable import/order */
 import type { ReviewDecision } from "./review.js";
 import type { ApplyPatchCommand, ApprovalPolicy } from "../../approvals.js";
 import type { AppConfig } from "../config.js";
 import type { ResponseEvent } from "../responses.js";
+import type { ExecInput } from "./sandbox/interface.js";
 import type {
   ResponseFunctionToolCall,
   ResponseInputItem,
@@ -31,11 +33,12 @@ import {
 } from "../session.js";
 import { applyPatchToolInstructions } from "./apply-patch.js";
 import { handleExecCommand } from "./handle-exec-command.js";
-import { HttpsProxyAgent } from "https-proxy-agent";
+import { captureScreenshots } from "../visual-loop.js";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import OpenAI, { APIConnectionTimeoutError, AzureOpenAI } from "openai";
 import os from "os";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import OpenAI, { APIConnectionTimeoutError, AzureOpenAI } from "openai";
 
 // Wait time before retrying after rate limit errors (ms).
 const RATE_LIMIT_RETRY_WAIT_MS = parseInt(
@@ -104,6 +107,22 @@ const shellFunctionTool: FunctionTool = {
       },
     },
     required: ["command"],
+    additionalProperties: false,
+  },
+};
+
+const screenshotFunctionTool: FunctionTool = {
+  type: "function",
+  name: "capture_screenshots",
+  description:
+    "Launches the project and returns base64 screenshots for visual checks.",
+  strict: false,
+  parameters: {
+    type: "object",
+    properties: {
+      start_command: { type: "string" },
+      url: { type: "string" },
+    },
     additionalProperties: false,
   },
 };
@@ -411,7 +430,7 @@ export class AgentLoop {
       } callId=${callId} args=${rawArguments}`,
     );
 
-    if (args == null) {
+    if (args == null && (name === "container.exec" || name === "shell")) {
       const outputItem: ResponseInputItem.FunctionCallOutput = {
         type: "function_call_output",
         call_id: item.call_id,
@@ -449,7 +468,7 @@ export class AgentLoop {
         metadata,
         additionalItems: additionalItemsFromExec,
       } = await handleExecCommand(
-        args,
+        args as ExecInput,
         this.config,
         this.approvalPolicy,
         this.additionalWritableRoots,
@@ -461,6 +480,13 @@ export class AgentLoop {
       if (additionalItemsFromExec) {
         additionalItems.push(...additionalItemsFromExec);
       }
+    } else if (name === "capture_screenshots") {
+      const params = rawArguments ? JSON.parse(rawArguments) : {};
+      const images = await captureScreenshots({
+        startCommand: params.start_command,
+        url: params.url,
+      });
+      outputItem.output = JSON.stringify({ images });
     }
 
     return [outputItem, ...additionalItems];
@@ -517,7 +543,7 @@ export class AgentLoop {
       metadata,
       additionalItems: additionalItemsFromExec,
     } = await handleExecCommand(
-      args,
+      args as ExecInput,
       this.config,
       this.approvalPolicy,
       this.additionalWritableRoots,
@@ -620,6 +646,9 @@ export class AgentLoop {
       let tools: Array<Tool> = [shellFunctionTool];
       if (this.model.startsWith("codex")) {
         tools = [localShellTool];
+      }
+      if (process.env["CODEX_DISABLE_VISUAL_TOOL"] !== "1") {
+        tools.push(screenshotFunctionTool);
       }
 
       const stripInternalFields = (
@@ -1620,6 +1649,7 @@ You can:
 - Work inside a sandboxed, git-backed workspace with rollback support.
 - Log telemetry so sessions can be replayed or inspected later.
 - More details on your functionality are available at \`codex --help\`
+ - Request screenshots via the 'capture_screenshots' tool for UI or layout tasks and reply with "DONE ✅" when the goal is met.
 
 The Codex CLI is open-sourced. Don't confuse yourself with the old Codex language model built by OpenAI many moons ago (this is understandably top of mind for you!). Within this context, Codex refers to the open-source agentic coding interface.
 

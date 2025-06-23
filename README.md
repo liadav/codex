@@ -241,6 +241,12 @@ Additional options:
 - `--max-attempts` – maximum number of iterations (default `3`)
 - `OPENAI_API_KEY` must be set for vision evaluation to work
 
+The assistant may also request screenshots at any time using the
+`capture_screenshots` tool. It launches your app (default `npm start`),
+crawls the provided URL and returns base64 images so the model can verify
+visual tasks. Set `CODEX_DISABLE_VISUAL_TOOL=1` to disable this
+behaviour.
+
 ---
 
 ## Memory & project docs
