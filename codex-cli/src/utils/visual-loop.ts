@@ -1,4 +1,5 @@
 import type { AppConfig } from "./config.js";
+import type * as JimpNS from "jimp";
 import type { ResponseItem } from "openai/resources/responses/responses";
 
 import { AgentLoop } from "./agent/agent-loop.js";
@@ -10,15 +11,13 @@ import { spawn } from "child_process";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import sharp from "sharp";
 
 async function loadAndCompress(file: string): Promise<string> {
-  const b = await fs.readFile(file);
-  const compressed = await sharp(b).jpeg({ quality: 60 }).toBuffer();
+  const { Jimp } = (await import("jimp")) as typeof JimpNS;
+  const image = await Jimp.read(file);
+  const compressed = await image.getBuffer("image/jpeg", { quality: 60 });
   return compressed.toString("base64");
 }
-
-
 
 export type VisualLoopOptions = {
   prompt: string;
@@ -37,15 +36,15 @@ const VIEWPORTS = [
 
 async function waitForServer(url: string, timeoutMs = 30_000): Promise<void> {
   const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await fetch(url, { method: "HEAD" });
-        return;
-      } catch {
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 1000));
-      }
+  while (Date.now() - start < timeoutMs) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await fetch(url, { method: "HEAD" });
+      return;
+    } catch {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }
   throw new Error(`Server did not start at ${url}`);
 }
@@ -101,9 +100,7 @@ export async function captureScreenshots(params: {
 function supportsVision(model: string): boolean {
   const lower = model.toLowerCase();
   return (
-    lower.includes("gpt-4") ||
-    lower.includes("o3") ||
-    lower.includes("o4")
+    lower.includes("gpt-4") || lower.includes("o3") || lower.includes("o4")
   );
 }
 
@@ -114,7 +111,9 @@ async function evaluateScreenshots(
 ): Promise<string> {
   if (!supportsVision(model)) {
     // eslint-disable-next-line no-console
-    console.warn(`Model ${model} may not support vision; skipping visual check.`);
+    console.warn(
+      `Model ${model} may not support vision; skipping visual check.`,
+    );
     return "DONE ✅";
   }
   const openai = createOpenAIClient({ provider: "openai" });
