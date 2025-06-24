@@ -26,6 +26,7 @@ export type VisualLoopOptions = {
   startCommand?: string;
   url?: string;
   maxAttempts?: number;
+  skipCompression?: boolean;
 };
 
 const VIEWPORTS = [
@@ -77,16 +78,20 @@ export async function screenshotUrl(url: string): Promise<Array<string>> {
 export async function captureScreenshots(params: {
   startCommand?: string;
   url?: string;
+  skipCompression?: boolean;
 }): Promise<Array<string>> {
-  const { startCommand = "npm start", url = "http://localhost:3000" } =
-    params ?? {};
+  const {
+    startCommand = "npm start",
+    url = "http://localhost:3000",
+    skipCompression = process.env["CODEX_SKIP_COMPRESSION"] === "1",
+  } = params ?? {};
   const proc = spawn(startCommand, { shell: true, stdio: "ignore" });
   try {
     await waitForServer(url);
     const files = await screenshotUrl(url);
     const images = await Promise.all(
       files.map(async (f) => {
-        const base64 = await loadAndCompress(f);
+        const base64 = await loadAndCompress(f, skipCompression);
         await fs.unlink(f).catch(() => {});
         return base64;
       }),
@@ -108,6 +113,7 @@ async function evaluateScreenshots(
   model: string,
   prompt: string,
   screenshots: Array<string>,
+  skipCompression = process.env["CODEX_SKIP_COMPRESSION"] === "1",
 ): Promise<string> {
   if (!supportsVision(model)) {
     // eslint-disable-next-line no-console
@@ -117,7 +123,9 @@ async function evaluateScreenshots(
     return "DONE ✅";
   }
   const openai = createOpenAIClient({ provider: "openai" });
-  const contents = await Promise.all(screenshots.map(loadAndCompress));
+  const contents = await Promise.all(
+    screenshots.map((s) => loadAndCompress(s, skipCompression)),
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const messages: Array<any> = [
     {
@@ -175,6 +183,7 @@ export async function runVisualLoop(opts: VisualLoopOptions): Promise<void> {
     startCommand = "npm start",
     url = "http://localhost:3000",
     maxAttempts = 3,
+    skipCompression = process.env["CODEX_SKIP_COMPRESSION"] === "1",
   } = opts;
   let prompt = original;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -187,7 +196,12 @@ export async function runVisualLoop(opts: VisualLoopOptions): Promise<void> {
       // eslint-disable-next-line no-await-in-loop
       const shots = await screenshotUrl(url);
       // eslint-disable-next-line no-await-in-loop
-      const evaluation = await evaluateScreenshots(model, original, shots);
+      const evaluation = await evaluateScreenshots(
+        model,
+        original,
+        shots,
+        skipCompression,
+      );
       if (/DONE\s*✅/i.test(evaluation)) {
         // eslint-disable-next-line no-console
         console.log("DONE ✅");
